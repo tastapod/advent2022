@@ -103,5 +103,6 @@ func collectPoints(points chan Point, results chan<- ObstacleMap) {
 	for point := range points {
 		result[point] = ROCK
 	}
+
 	results <- result
 }
