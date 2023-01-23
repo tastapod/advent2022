@@ -10,6 +10,10 @@ type Point struct {
 	x, y int
 }
 
+type Segment struct {
+	start, end Point
+}
+
 type Path []Point
 
 type Obstacle rune
@@ -25,103 +29,112 @@ type Cave struct {
 }
 
 func NewCaveFromStrings(paths []string) Cave {
+	return NewCaveFromPaths(parsePaths(paths))
+}
+
+func NewCaveFromPaths(paths []Path) Cave {
 	cave := Cave{Point{500, 0}, NewObstacleMap()}
-	for _, path := range ParsePaths(paths) {
-		cave.obstacles.ExpandPath(path)
+	for _, path := range paths {
+		cave.obstacles.expandPath(path)
 	}
 	return cave
 }
 
-// dropSand drops a grain of sand from the start point until it settles.
-// It returns the final resting place of the sand and true if the sand settled,
-// or the start point and false if it fell through.
-func (c *Cave) dropSand() (Point, bool) {
-	bottom := c.bottom()
-	sand := c.start
+func (c *Cave) baseline() (Point, Point) {
+	return c.obstacles.baselineAround(c.start)
+}
 
-	if c.obstacles.isBlocked(sand) {
+func (c *Cave) dropSand() (Point, bool) {
+	return c.obstacles.dropSandFrom(c.start)
+}
+
+func (c *Cave) FillWithSand() int {
+	return c.obstacles.fillWithSandFrom(c.start)
+}
+
+func (c *Cave) AddBaseline() {
+	c.obstacles.addBaselineAround(c.start)
+}
+
+type ObstacleMap struct {
+	points map[Point]Obstacle
+	lowest int
+}
+
+func NewObstacleMap() ObstacleMap {
+	return ObstacleMap{make(map[Point]Obstacle), 0}
+}
+
+// dropSandFrom drops a grain of sand from the start point until it settles.
+// It returns the final resting place of the sand and true if the sand settles,
+// or the start point and false if it falls through, past lowest point.
+func (om *ObstacleMap) dropSandFrom(start Point) (Point, bool) {
+	sand := start
+	if om.isBlocked(sand) {
 		return sand, false
 	}
 
 grains:
-	for sand.y <= bottom {
+	for below := sand; sand.y <= om.lowest; {
 		for _, xBelow := range []int{sand.x, sand.x - 1, sand.x + 1} {
-			below := Point{xBelow, sand.y + 1}
-			if !c.obstacles.isBlocked(below) {
+			below = Point{xBelow, sand.y + 1}
+			if !om.isBlocked(below) {
 				sand = below
 				continue grains
 			}
 		}
 		// we have come to rest
-		c.obstacles[sand] = SAND
+		om.points[sand] = SAND
 		return sand, true
 	}
 	// we fell through
-	return c.start, false
+	return start, false
 }
 
-func (c *Cave) bottom() int {
-	result := 0
-	for rock := range c.obstacles {
-		if rock.y > result {
-			result = rock.y
-		}
+func (om *ObstacleMap) fillWithSandFrom(start Point) int {
+	before := len(om.points)
+
+	for settled := true; settled; _, settled = om.dropSandFrom(start) {
 	}
-	return result
-}
-
-func (c *Cave) baseline() (Point, Point) {
-	bottom := c.bottom() + 2
-	return Point{c.start.x - bottom - 1, bottom}, Point{c.start.x + bottom + 1, bottom}
-}
-
-func (c *Cave) FillWithSand() int {
-	before := len(c.obstacles)
-
-	for _, settled := c.dropSand(); settled; _, settled = c.dropSand() {
-
-	}
-	after := len(c.obstacles)
+	after := len(om.points)
 	return after - before
 }
 
-func (c *Cave) AddBaseline() {
-	start, end := c.baseline()
-	c.obstacles.ExpandPath([]Point{start, end})
+func (om *ObstacleMap) addBaselineAround(centre Point) {
+	left, right := om.baselineAround(centre)
+	om.expandPath([]Point{left, right})
 }
 
-type ObstacleMap map[Point]Obstacle
-
-func NewObstacleMap() ObstacleMap {
-	return make(ObstacleMap)
-}
-
-func (om ObstacleMap) ExpandPath(points Path) {
+func (om *ObstacleMap) expandPath(points Path) {
 	segments := zipWithNext(points)
 
 	for _, segment := range segments {
-		segment.expandToMap(om)
+		om.expandSegment(segment)
 	}
 }
 
-func (om ObstacleMap) isBlocked(point Point) bool {
-	_, exists := om[point]
+func (om *ObstacleMap) isBlocked(point Point) bool {
+	_, exists := om.points[point]
 	return exists
 }
 
-type Segment struct {
-	start, end Point
-}
-
-func (s *Segment) expandToMap(obstacleMap ObstacleMap) {
-	x1, x2 := inOrder(s.start.x, s.end.x)
-	y1, y2 := inOrder(s.start.y, s.end.y)
+func (om *ObstacleMap) expandSegment(segment Segment) {
+	x1, x2 := inOrder(segment.start.x, segment.end.x)
+	y1, y2 := inOrder(segment.start.y, segment.end.y)
 
 	for x := x1; x <= x2; x++ {
 		for y := y1; y <= y2; y++ {
-			obstacleMap[Point{x, y}] = ROCK
+			om.points[Point{x, y}] = ROCK
 		}
 	}
+	if y2 > om.lowest {
+		om.lowest = y2
+	}
+}
+
+func (om *ObstacleMap) baselineAround(start Point) (Point, Point) {
+	depth := om.lowest + 2
+	return Point{start.x - depth - 1, depth}, Point{start.x + depth + 1, depth}
 }
 
 func zipWithNext(points Path) []Segment {
@@ -142,7 +155,7 @@ func inOrder(i1 int, i2 int) (int, int) {
 	}
 }
 
-func ParsePath(input string) Path {
+func parsePath(input string) Path {
 	points := strings.Split(input, " -> ")
 	result := make([]Point, len(points))
 
@@ -153,11 +166,11 @@ func ParsePath(input string) Path {
 	return result
 }
 
-func ParsePaths(input []string) []Path {
+func parsePaths(input []string) []Path {
 	result := make([]Path, len(input))
 
 	for i, line := range input {
-		result[i] = ParsePath(line)
+		result[i] = parsePath(line)
 	}
 	return result
 }

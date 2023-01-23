@@ -28,18 +28,18 @@ func checkEqual[T any](t *testing.T, expected T, actual T) {
 }
 
 func TestExpandsPath(t *testing.T) {
-	points := NewObstacleMap()
-	points.ExpandPath([]Point{{498, 4}, {498, 6}, {496, 6}})
+	om := NewObstacleMap()
+	om.expandPath([]Point{{498, 4}, {498, 6}, {496, 6}})
 
 	for _, point := range []Point{{498, 4}, {498, 5}, {498, 6}, {497, 6}, {496, 6}} {
-		_, found := points[point]
+		_, found := om.points[point]
 		if !found {
 			t.Error(point, " expected but not found")
 		}
 	}
 
 	for _, point := range []Point{{497, 4}, {500, 5}, {498, 10}} {
-		_, found := points[point]
+		_, found := om.points[point]
 		if found {
 			t.Error(point, " found but not expected")
 		}
@@ -50,7 +50,7 @@ func TestParsesPath(t *testing.T) {
 	input := "503,4 -> 502,4 -> 502,9 -> 494,9"
 	expected := Path{{503, 4}, {502, 4}, {502, 9}, {494, 9}}
 
-	points := ParsePath(input)
+	points := parsePath(input)
 	checkEqual(t, &expected, &points)
 }
 
@@ -65,7 +65,7 @@ func TestParsesMultiplePaths(t *testing.T) {
 		{{503, 4}, {502, 4}, {502, 9}, {494, 9}},
 	}
 
-	paths := ParsePaths(sampleInput)
+	paths := parsePaths(sampleInput)
 	checkEqual(t, &expected, &paths)
 }
 
