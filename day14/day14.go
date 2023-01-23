@@ -70,6 +70,11 @@ func (c *Cave) bottom() int {
 	return result
 }
 
+func (c *Cave) baseline() (Point, Point) {
+	bottom := c.bottom() + 2
+	return Point{c.start.x - bottom - 1, bottom}, Point{c.start.x + bottom + 1, bottom}
+}
+
 func (c *Cave) FillWithSand() int {
 	before := len(c.obstacles)
 
@@ -78,6 +83,11 @@ func (c *Cave) FillWithSand() int {
 	}
 	after := len(c.obstacles)
 	return after - before
+}
+
+func (c *Cave) AddBaseline() {
+	start, end := c.baseline()
+	c.obstacles.ExpandPath([]Point{start, end})
 }
 
 type ObstacleMap map[Point]Obstacle

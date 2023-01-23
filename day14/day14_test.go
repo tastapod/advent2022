@@ -69,8 +69,12 @@ func TestParsesMultiplePaths(t *testing.T) {
 	checkEqual(t, &expected, &paths)
 }
 
+func sampleCave() Cave {
+	return NewCaveFromStrings(sampleInput)
+}
+
 func TestDropsSand(t *testing.T) {
-	cave := NewCaveFromStrings(sampleInput)
+	cave := sampleCave()
 
 	// drop first grain
 	landedAt, landed := cave.dropSand()
@@ -92,7 +96,21 @@ func TestDropsSand(t *testing.T) {
 }
 
 func TestCountsSand(t *testing.T) {
-	cave := NewCaveFromStrings(sampleInput)
+	cave := sampleCave()
 	numGrains := cave.FillWithSand()
 	checkEqual(t, 24, numGrains)
+}
+
+func TestCalculatesBaseline(t *testing.T) {
+	cave := sampleCave()
+	start, end := cave.baseline()
+	checkEqual(t, Point{500 - 12, 11}, start)
+	checkEqual(t, Point{500 + 12, 11}, end)
+}
+
+func TestFillsWithBaseline(t *testing.T) {
+	cave := NewCaveFromStrings(sampleInput)
+	cave.AddBaseline()
+	numGrains := cave.FillWithSand()
+	checkEqual(t, 93, numGrains)
 }
