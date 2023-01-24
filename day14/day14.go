@@ -23,117 +23,100 @@ const (
 	ROCK Obstacle = '#'
 )
 
+type ObstacleMap map[Point]Obstacle
+
 type Cave struct {
-	start     Point
 	obstacles ObstacleMap
+	lowest    int
 }
+
+var StartPoint = Point{500, 0}
 
 func NewCaveFromStrings(paths []string) Cave {
 	return NewCaveFromPaths(parsePaths(paths))
 }
 
 func NewCaveFromPaths(paths []Path) Cave {
-	cave := Cave{Point{500, 0}, NewObstacleMap()}
+	result := NewCave()
 	for _, path := range paths {
-		cave.obstacles.expandPath(path)
+		result.expandPath(path)
 	}
-	return cave
+	return result
 }
 
-func (c *Cave) baseline() (Point, Point) {
-	return c.obstacles.baselineAround(c.start)
-}
-
-func (c *Cave) dropSand() (Point, bool) {
-	return c.obstacles.dropSandFrom(c.start)
-}
-
-func (c *Cave) FillWithSand() int {
-	return c.obstacles.fillWithSandFrom(c.start)
-}
-
-func (c *Cave) AddBaseline() {
-	c.obstacles.addBaselineAround(c.start)
-}
-
-type ObstacleMap struct {
-	points map[Point]Obstacle
-	lowest int
-}
-
-func NewObstacleMap() ObstacleMap {
-	return ObstacleMap{make(map[Point]Obstacle), 0}
+func NewCave() Cave {
+	return Cave{make(ObstacleMap), 0}
 }
 
 // dropSandFrom drops a grain of sand from the start point until it settles.
 // It returns the final resting place of the sand and true if the sand settles,
 // or the start point and false if it falls through, past lowest point.
-func (om *ObstacleMap) dropSandFrom(start Point) (Point, bool) {
+func (cave *Cave) dropSandFrom(start Point) (Point, bool) {
 	sand := start
-	if om.isBlocked(sand) {
+	if cave.isBlocked(sand) {
 		return sand, false
 	}
 
 grains:
-	for below := sand; sand.y <= om.lowest; {
+	for below := sand; sand.y <= cave.lowest; {
 		for _, xBelow := range []int{sand.x, sand.x - 1, sand.x + 1} {
 			below = Point{xBelow, sand.y + 1}
-			if !om.isBlocked(below) {
+			if !cave.isBlocked(below) {
 				sand = below
 				continue grains
 			}
 		}
 		// we have come to rest
-		om.points[sand] = SAND
+		cave.obstacles[sand] = SAND
 		return sand, true
 	}
 	// we fell through
 	return start, false
 }
 
-func (om *ObstacleMap) fillWithSandFrom(start Point) int {
-	before := len(om.points)
+func (cave *Cave) FillWithSandFrom(start Point) int {
+	before := len(cave.obstacles)
 
-	for settled := true; settled; _, settled = om.dropSandFrom(start) {
+	for settled := true; settled; _, settled = cave.dropSandFrom(start) {
 	}
-	after := len(om.points)
+	after := len(cave.obstacles)
 	return after - before
 }
 
-func (om *ObstacleMap) addBaselineAround(centre Point) {
-	left, right := om.baselineAround(centre)
-	om.expandPath([]Point{left, right})
+func (cave *Cave) AddBaselineAround(centre Point) {
+	left, right := cave.baselineAround(centre)
+	cave.expandPath([]Point{left, right})
 }
 
-func (om *ObstacleMap) expandPath(points Path) {
+func (cave *Cave) expandPath(points Path) {
 	segments := zipWithNext(points)
 
 	for _, segment := range segments {
-		om.expandSegment(segment)
+		cave.expandSegment(segment)
 	}
 }
 
-func (om *ObstacleMap) isBlocked(point Point) bool {
-	_, exists := om.points[point]
+func (cave *Cave) isBlocked(point Point) bool {
+	_, exists := cave.obstacles[point]
 	return exists
 }
 
-func (om *ObstacleMap) expandSegment(segment Segment) {
+func (cave *Cave) expandSegment(segment Segment) {
 	x1, x2 := inOrder(segment.start.x, segment.end.x)
 	y1, y2 := inOrder(segment.start.y, segment.end.y)
 
 	for x := x1; x <= x2; x++ {
 		for y := y1; y <= y2; y++ {
-			om.points[Point{x, y}] = ROCK
+			cave.obstacles[Point{x, y}] = ROCK
 		}
 	}
-	if y2 > om.lowest {
-		om.lowest = y2
+	if y2 > cave.lowest {
+		cave.lowest = y2
 	}
 }
 
-func (om *ObstacleMap) baselineAround(start Point) (Point, Point) {
-	depth := om.lowest + 2
+func (cave *Cave) baselineAround(start Point) (Point, Point) {
+	depth := cave.lowest + 2
 	return Point{start.x - depth - 1, depth}, Point{start.x + depth + 1, depth}
 }
 
@@ -156,11 +139,11 @@ func inOrder(i1 int, i2 int) (int, int) {
 }
 
 func parsePath(input string) Path {
-	points := strings.Split(input, " -> ")
-	result := make([]Point, len(points))
+	coords := strings.Split(input, " -> ")
+	result := make([]Point, len(coords))
 
-	for i, coords := range points {
-		x, y, _ := strings.Cut(coords, ",")
+	for i, coord := range coords {
+		x, y, _ := strings.Cut(coord, ",")
 		result[i] = Point{toInt(x), toInt(y)}
 	}
 	return result

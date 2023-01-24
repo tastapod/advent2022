@@ -8,13 +8,17 @@ import (
 )
 
 func main() {
+	solveDay14()
+}
+
+func solveDay14() {
 	paths := strings.Split(input.ForDay(14), "\n")
 	cave := day14.NewCaveFromStrings(paths)
-	part1 := cave.FillWithSand()
+	part1 := cave.FillWithSandFrom(day14.StartPoint)
 	fmt.Printf("Day 14 part 1: %d\n", part1)
 
 	cave = day14.NewCaveFromStrings(paths)
-	cave.AddBaseline()
-	part2 := cave.FillWithSand()
+	cave.AddBaselineAround(day14.StartPoint)
+	part2 := cave.FillWithSandFrom(day14.StartPoint)
 	fmt.Printf("Day 14 part 2: %d\n", part2)
 }
