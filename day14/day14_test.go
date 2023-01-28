@@ -3,36 +3,44 @@ package day14_test
 import (
 	"github.com/tastapod/advent2022/check"
 	. "github.com/tastapod/advent2022/day14"
+	. "github.com/tastapod/advent2022/pair"
+	. "github.com/tastapod/advent2022/segment"
 	"strings"
 	"testing"
 )
 
 func TestCreatesPairs(t *testing.T) {
-	var expected = []Segment{
-		{Point{X: 10, Y: 20}, Point{X: 25, Y: 35}},
-		{Point{X: 25, Y: 35}, Point{X: 40, Y: 50}},
-		{Point{X: 40, Y: 50}, Point{X: 55, Y: 65}},
-		{Point{X: 55, Y: 65}, Point{X: 70, Y: 80}},
+	path := Path{{10, 20}, {10, 30}, {20, 30}, {40, 30}, {40, 80}}
+
+	expected := []Pair[Point]{
+		{Point{X: 10, Y: 20}, Point{X: 10, Y: 30}},
+		{Point{X: 10, Y: 30}, Point{X: 20, Y: 30}},
+		{Point{X: 20, Y: 30}, Point{X: 40, Y: 30}},
+		{Point{X: 40, Y: 30}, Point{X: 40, Y: 80}},
 	}
 
-	pairs := ZipWithNext([]Point{{10, 20}, {25, 35}, {40, 50}, {55, 65}, {70, 80}})
-
+	pairs := ZipWithNext(path)
 	check.Equal(t, expected, pairs)
 }
 
 func TestExpandsPath(t *testing.T) {
-	cave := NewCave()
-	cave.ExpandPath([]Point{{498, 4}, {498, 6}, {496, 6}})
+	om := ObstacleMap{}
+	path := Path{{498, 4}, {498, 6}, {496, 6}}
+
+	err := om.PlotObstaclePath(path, ROCK)
+	if err != nil {
+		t.Error(err)
+	}
 
 	for _, point := range []Point{{498, 4}, {498, 5}, {498, 6}, {497, 6}, {496, 6}} {
-		if !cave.ObstacleAt(point) {
-			t.Error(point, "expected but not found")
+		if _, found := om[point]; !found {
+			t.Error(point, "was not found")
 		}
 	}
 
 	for _, point := range []Point{{497, 4}, {500, 5}, {498, 10}} {
-		if cave.ObstacleAt(point) {
-			t.Error(point, "found but not expected")
+		if _, found := om[point]; found {
+			t.Error(point, "was found")
 		}
 	}
 }
@@ -60,12 +68,12 @@ func TestParsesMultiplePaths(t *testing.T) {
 	check.Equal(t, expected, paths)
 }
 
-func sampleCave() Cave {
+func sampleCave() (Cave, error) {
 	return NewCaveFromStrings(sampleInput)
 }
 
 func TestDropsSand(t *testing.T) {
-	cave := sampleCave()
+	cave, _ := sampleCave()
 
 	// drop first grain
 	landedAt, landed := cave.DropSandFrom(StartPoint)
@@ -87,21 +95,24 @@ func TestDropsSand(t *testing.T) {
 }
 
 func TestCountsSand(t *testing.T) {
-	cave := sampleCave()
+	cave, _ := sampleCave()
 	numGrains := cave.FillWithSandFrom(StartPoint)
 	check.Equal(t, 24, numGrains)
 }
 
 func TestCalculatesBaseline(t *testing.T) {
-	cave := sampleCave()
+	cave, _ := sampleCave()
 	start, end := cave.BaselineAround(StartPoint)
 	check.Equal(t, Point{X: 500 - 12, Y: 11}, start)
 	check.Equal(t, Point{X: 500 + 12, Y: 11}, end)
 }
 
 func TestFillsWithBaseline(t *testing.T) {
-	cave := NewCaveFromStrings(sampleInput)
-	cave.AddBaselineAround(StartPoint)
+	cave, _ := NewCaveFromStrings(sampleInput)
+	err := cave.AddBaselineAround(StartPoint)
+	if err != nil {
+		t.Error(err)
+	}
 	numGrains := cave.FillWithSandFrom(StartPoint)
 	check.Equal(t, 93, numGrains)
 }

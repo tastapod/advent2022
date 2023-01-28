@@ -13,12 +13,14 @@ func main() {
 
 func solveDay14() {
 	paths := strings.Split(input.ForDay(14), "\n")
-	cave := day14.NewCaveFromStrings(paths)
+	cave, _ := day14.NewCaveFromStrings(paths)
 	part1 := cave.FillWithSandFrom(day14.StartPoint)
 	fmt.Printf("Day 14 part 1: %d\n", part1)
 
-	cave = day14.NewCaveFromStrings(paths)
-	cave.AddBaselineAround(day14.StartPoint)
+	cave, _ = day14.NewCaveFromStrings(paths)
+	if err := cave.AddBaselineAround(day14.StartPoint); err != nil {
+		fmt.Println("Day 14", err)
+	}
 	part2 := cave.FillWithSandFrom(day14.StartPoint)
 	fmt.Printf("Day 14 part 2: %d\n", part2)
 }

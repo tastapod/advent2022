@@ -2,19 +2,54 @@ package day14
 
 import (
 	"fmt"
+	"github.com/tastapod/advent2022/pair"
+	. "github.com/tastapod/advent2022/segment"
 	"strconv"
 	"strings"
 )
 
-type Point struct {
-	X, Y int
-}
-
-type Segment struct {
-	Start, End Point
-}
-
 type Path []Point
+
+func (path Path) ToSegments() ([]Segment, error) {
+	pairs := pair.ZipWithNext(path)
+	result := make([]Segment, len(pairs))
+
+	for i, points := range pairs {
+		segment, err := NewSegment(points.First, points.Second)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = segment
+	}
+	return result, nil
+}
+
+func ParsePaths(input []string) []Path {
+	result := make([]Path, len(input))
+
+	for i, line := range input {
+		result[i] = ParsePath(line)
+	}
+	return result
+}
+
+func ParsePath(input string) Path {
+	coords := strings.Split(input, " -> ")
+	result := make([]Point, len(coords))
+
+	for i, coord := range coords {
+		x, y, _ := strings.Cut(coord, ",")
+		result[i] = Point{X: toInt(x), Y: toInt(y)}
+	}
+	return result
+}
+
+func toInt(s string) int {
+	if result, err := strconv.Atoi(s); err == nil {
+		return result
+	}
+	panic(fmt.Sprintf("'%s': cannot parse int", s))
+}
 
 type Obstacle rune
 
@@ -25,23 +60,40 @@ const (
 
 type ObstacleMap map[Point]Obstacle
 
-type Cave struct {
-	obstacles ObstacleMap
-	lowest    int
+func (om ObstacleMap) PlotObstaclePath(path Path, obstacle Obstacle) error {
+	segments, err := path.ToSegments()
+	if err != nil {
+		return err
+	}
+
+	for _, segment := range segments {
+		for _, point := range segment.Points() {
+			om[point] = obstacle
+		}
+	}
+	return nil
 }
 
-var StartPoint = Point{500, 0}
+type Cave struct {
+	obstacles ObstacleMap
+	deepest   int
+}
 
-func NewCaveFromStrings(paths []string) Cave {
+var StartPoint = Point{X: 500}
+
+func NewCaveFromStrings(paths []string) (Cave, error) {
 	return NewCaveFromPaths(ParsePaths(paths))
 }
 
-func NewCaveFromPaths(paths []Path) Cave {
+func NewCaveFromPaths(paths []Path) (Cave, error) {
 	result := NewCave()
 	for _, path := range paths {
-		result.ExpandPath(path)
+		err := result.ExpandPath(path)
+		if err != nil {
+			return Cave{}, err
+		}
 	}
-	return result
+	return result, nil
 }
 
 func NewCave() Cave {
@@ -55,7 +107,7 @@ func (cave *Cave) ObstacleAt(point Point) bool {
 
 // DropSandFrom drops a grain of sand from the start point until it settles.
 // It returns the final resting place of the sand and true if the sand settles,
-// or the start point and false if it falls through, past lowest point.
+// or the start point and false if it falls through, past deepest point.
 func (cave *Cave) DropSandFrom(start Point) (Point, bool) {
 	sand := start
 	if cave.isBlocked(sand) {
@@ -63,9 +115,9 @@ func (cave *Cave) DropSandFrom(start Point) (Point, bool) {
 	}
 
 grains:
-	for below := sand; sand.Y <= cave.lowest; {
+	for below := sand; sand.Y <= cave.deepest; {
 		for _, xBelow := range []int{sand.X, sand.X - 1, sand.X + 1} {
-			below = Point{xBelow, sand.Y + 1}
+			below = Point{X: xBelow, Y: sand.Y + 1}
 			if !cave.isBlocked(below) {
 				sand = below
 				continue grains
@@ -88,17 +140,31 @@ func (cave *Cave) FillWithSandFrom(start Point) int {
 	return after - before
 }
 
-func (cave *Cave) AddBaselineAround(centre Point) {
+func (cave *Cave) AddBaselineAround(centre Point) error {
 	left, right := cave.BaselineAround(centre)
-	cave.ExpandPath([]Point{left, right})
+
+	if err := cave.ExpandPath([]Point{left, right}); err != nil {
+		return err
+	}
+	return nil
 }
 
-func (cave *Cave) ExpandPath(points Path) {
-	segments := ZipWithNext(points)
-
-	for _, segment := range segments {
-		cave.expandSegment(segment)
+func (cave *Cave) ExpandPath(path Path) error {
+	if err := cave.obstacles.PlotObstaclePath(path, ROCK); err != nil {
+		return err
 	}
+
+	cave.deepest = findDeepest(path, cave.deepest)
+	return nil
+}
+
+func findDeepest(path Path, deepest int) int {
+	for _, point := range path {
+		if point.Y > deepest {
+			deepest = point.Y
+		}
+	}
+	return deepest
 }
 
 func (cave *Cave) isBlocked(point Point) bool {
@@ -106,66 +172,7 @@ func (cave *Cave) isBlocked(point Point) bool {
 	return exists
 }
 
-func (cave *Cave) expandSegment(segment Segment) {
-	x1, x2 := inOrder(segment.Start.X, segment.End.X)
-	y1, y2 := inOrder(segment.Start.Y, segment.End.Y)
-
-	for x := x1; x <= x2; x++ {
-		for y := y1; y <= y2; y++ {
-			cave.obstacles[Point{x, y}] = ROCK
-		}
-	}
-	if y2 > cave.lowest {
-		cave.lowest = y2
-	}
-}
-
-func inOrder(i1 int, i2 int) (int, int) {
-	if i1 <= i2 {
-		return i1, i2
-	} else {
-		return i2, i1
-	}
-}
-
 func (cave *Cave) BaselineAround(start Point) (Point, Point) {
-	depth := cave.lowest + 2
-	return Point{start.X - depth - 1, depth}, Point{start.X + depth + 1, depth}
-}
-
-func ZipWithNext(points Path) []Segment {
-	ends := points[1:]
-	result := make([]Segment, len(ends))
-
-	for i, end := range ends {
-		result[i] = Segment{points[i], end}
-	}
-	return result
-}
-
-func ParsePath(input string) Path {
-	coords := strings.Split(input, " -> ")
-	result := make([]Point, len(coords))
-
-	for i, coord := range coords {
-		x, y, _ := strings.Cut(coord, ",")
-		result[i] = Point{toInt(x), toInt(y)}
-	}
-	return result
-}
-
-func ParsePaths(input []string) []Path {
-	result := make([]Path, len(input))
-
-	for i, line := range input {
-		result[i] = ParsePath(line)
-	}
-	return result
-}
-
-func toInt(s string) int {
-	if result, err := strconv.Atoi(s); err == nil {
-		return result
-	}
-	panic(fmt.Sprintf("'%s': cannot parse int", s))
+	depth := cave.deepest + 2
+	return Point{X: start.X - depth - 1, Y: depth}, Point{X: start.X + depth + 1, Y: depth}
 }
