@@ -3,15 +3,15 @@ package input
 import (
 	"fmt"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 )
 
 func ForDay(day int) string {
-	filePath := path.Join("resources", fmt.Sprintf("Day%d.txt", day))
-	content, err := os.ReadFile(filePath)
+	dayFile := filepath.Join(fmt.Sprintf("day%d", day), fmt.Sprintf("day%d.txt", day))
+	content, err := os.ReadFile(dayFile)
 	if err != nil {
-		panic(fmt.Sprintf("%s: error %s", filePath, err))
+		panic(fmt.Sprintf("%s: error %s", dayFile, err))
 	}
 	return strings.TrimSpace(string(content))
 }
