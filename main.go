@@ -28,7 +28,13 @@ func solveDay14() {
 }
 
 func solveDay15() {
-	readings := strings.Split(input.ForDay(15), "\n")
-	part1 := day15.CountNonBeaconPoints(2000000, readings)
+	readings, err := day15.ParseReadings(strings.Split(input.ForDay(15), "\n"))
+	if err != nil {
+		return
+	}
+	part1 := day15.SumOverlappingSegmentLengths(2000000, readings)
 	fmt.Printf("Day 15 part 1: %d\n", part1)
+
+	part2 := day15.TuningFrequency(*day15.FindVacantPoint(4_000_000, readings))
+	fmt.Printf("Day 15 part 2: %d\n", part2)
 }

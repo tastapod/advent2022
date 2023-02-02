@@ -58,30 +58,79 @@ type KleePoint struct {
 	IsEnd bool
 }
 
-// CountNonBeaconPoints uses [Klee's algorithm] as described at [Open Genus].
+func ParseReadings(readingLines []string) ([]Reading, error) {
+	readings := make([]Reading, 0, len(readingLines))
+	for _, readingLine := range readingLines {
+		reading, err := NewReading(readingLine)
+		if err != nil {
+			return nil, err
+		}
+		readings = append(readings, reading)
+	}
+	return readings, nil
+}
+
+// SumOverlappingSegmentLengths uses [Klee's algorithm] as described at [Open Genus].
 //
 // [Klee's algorithm]: https://en.wikipedia.org/wiki/Klee%27s_measure_problem
 // [Open Genus]: https://iq.opengenus.org/klee-algorithm/
-func CountNonBeaconPoints(row int, readings []string) int {
-	kleePoints := make([]KleePoint, 0)
+func SumOverlappingSegmentLengths(row int, readings []Reading) int {
+	kleePoints := buildKleeVector(row, readings)
+	return calculateOverlappingLength(kleePoints)
+}
 
-	// build the Klee vector
-	for _, readingLine := range readings {
-		reading, err := NewReading(readingLine)
-		if err != nil {
-			return 0
+func FindVacantPoint(limit int, readings []Reading) *Point {
+	for y := 0; y <= limit; y++ {
+		kleeVector := buildKleeVector(y, readings)
+		if x := findEmptyPoint(kleeVector); x != nil {
+			result := Point{X: *x, Y: y}
+			return &result
 		}
+	}
+	return nil
+}
+
+func TuningFrequency(point Point) int {
+	return 4_000_000*point.X + point.Y
+}
+
+// findEmptyPoint is a riff on Klee's algorithm where we look for any
+// non-zero run where segment depth is 0, i.e. not covered by a segment
+//
+// Return an int pointer so we can use nil for not found
+func findEmptyPoint(kleeVector []KleePoint) *int {
+	segmentDepth := 1 // how many segments deep at this point
+
+	for i := 1; i < len(kleeVector); i++ {
+		prev, this := kleeVector[i-1], kleeVector[i]
+		if diff := this.X - prev.X; segmentDepth == 0 && diff > 0 {
+			// we found one!
+			result := prev.X + 1
+			return &result
+		}
+		if this.IsEnd {
+			segmentDepth -= 1
+		} else {
+			segmentDepth += 1
+		}
+	}
+	return nil
+}
+
+func buildKleeVector(row int, readings []Reading) []KleePoint {
+	result := make([]KleePoint, 0)
+
+	for _, reading := range readings {
 		if reading.IntersectsRow(row) {
 			segment := reading.SegmentOnRow(row)
-			kleePoints = append(kleePoints,
+			result = append(result,
 				KleePoint{segment.Start.X, false},
 				KleePoint{segment.End.X, true})
 		}
 	}
 
-	// sort it
-	sort.Slice(kleePoints, func(i, j int) bool {
-		left, right := kleePoints[i], kleePoints[j]
+	sort.Slice(result, func(i, j int) bool {
+		left, right := result[i], result[j]
 		if left.X < right.X {
 			return true
 		} else if left.X > right.X {
@@ -90,13 +139,15 @@ func CountNonBeaconPoints(row int, readings []string) int {
 			return left.IsEnd
 		}
 	})
+	return result
+}
 
-	// calculate the size
+func calculateOverlappingLength(kleeVector []KleePoint) int {
 	result := 0
 	segmentDepth := 1 // how many segments deep at this point
 
-	for i := 1; i < len(kleePoints); i++ {
-		prev, this := kleePoints[i-1], kleePoints[i]
+	for i := 1; i < len(kleeVector); i++ {
+		prev, this := kleeVector[i-1], kleeVector[i]
 		if diff := this.X - prev.X; segmentDepth > 0 && diff > 0 {
 			result += diff
 		}

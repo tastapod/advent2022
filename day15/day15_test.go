@@ -47,7 +47,7 @@ func TestChecksForIntersectingRow(t *testing.T) {
 	assert.False(reading.IntersectsRow(17))
 }
 
-var sampleReadings = strings.Split(strings.TrimSpace(`
+var sampleReadingLines = strings.Split(strings.TrimSpace(`
 Sensor at x=2, y=18: closest beacon is at x=-2, y=15
 Sensor at x=9, y=16: closest beacon is at x=10, y=16
 Sensor at x=13, y=2: closest beacon is at x=15, y=3
@@ -64,6 +64,24 @@ Sensor at x=14, y=3: closest beacon is at x=15, y=3
 Sensor at x=20, y=1: closest beacon is at x=15, y=3
 `), "\n")
 
+func parseReadings(t *testing.T) []Reading {
+	readings, err := ParseReadings(sampleReadingLines)
+	if err != nil {
+		t.Error(err)
+	}
+	return readings
+}
+
 func TestCountsPointsIntersectingRow(t *testing.T) {
-	assert.Equal(t, 26, CountNonBeaconPoints(10, sampleReadings))
+	readings := parseReadings(t)
+	assert.Equal(t, 26, SumOverlappingSegmentLengths(10, readings))
+}
+
+func TestFindsPossiblePoints(t *testing.T) {
+	readings := parseReadings(t)
+	assert.Equal(t, Point{X: 14, Y: 11}, *FindVacantPoint(20, readings))
+}
+
+func TestCalculatesTuningFrequency(t *testing.T) {
+	assert.Equal(t, 56000011, TuningFrequency(Point{X: 14, Y: 11}))
 }
