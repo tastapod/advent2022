@@ -3,12 +3,14 @@ package main
 import (
 	"fmt"
 	"github.com/tastapod/advent2022/day14"
+	"github.com/tastapod/advent2022/day15"
 	"github.com/tastapod/advent2022/input"
 	"strings"
 )
 
 func main() {
 	solveDay14()
+	solveDay15()
 }
 
 func solveDay14() {
@@ -23,4 +25,10 @@ func solveDay14() {
 	}
 	part2 := cave.FillWithSandFrom(day14.StartPoint)
 	fmt.Printf("Day 14 part 2: %d\n", part2)
+}
+
+func solveDay15() {
+	readings := strings.Split(input.ForDay(15), "\n")
+	part1 := day15.CountNonBeaconPoints(2000000, readings)
+	fmt.Printf("Day 15 part 1: %d\n", part1)
 }
