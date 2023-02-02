@@ -30,7 +30,7 @@ func TestFindsPointsOnGivenRow(t *testing.T) {
 	assert := assert.New(t)
 
 	reading := Reading{Sensor: Point{X: 8, Y: 7}, Beacon: Point{X: 2, Y: 10}}
-	segment := reading.PointsOnRow(10)
+	segment := reading.SegmentOnRow(10)
 
 	assert.Equal(13, len(segment.Points()))
 	assert.True(segment.Contains(Point{X: 2, Y: 10}))
