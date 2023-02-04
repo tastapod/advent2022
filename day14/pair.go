@@ -1,4 +1,4 @@
-package pair
+package day14
 
 type Pair[T any] struct {
 	First, Second T

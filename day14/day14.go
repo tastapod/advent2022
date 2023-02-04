@@ -2,8 +2,6 @@ package day14
 
 import (
 	"fmt"
-	"github.com/tastapod/advent2022/pair"
-	. "github.com/tastapod/advent2022/segment"
 	"strconv"
 	"strings"
 )
@@ -11,7 +9,7 @@ import (
 type Path []Point
 
 func (path Path) ToSegments() ([]Segment, error) {
-	pairs := pair.ZipWithNext(path)
+	pairs := ZipWithNext(path)
 	result := make([]Segment, len(pairs))
 
 	for i, points := range pairs {

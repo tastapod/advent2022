@@ -1,4 +1,4 @@
-package segment
+package day14
 
 import (
 	"errors"

@@ -3,8 +3,6 @@ package day14_test
 import (
 	"github.com/stretchr/testify/assert"
 	. "github.com/tastapod/advent2022/day14"
-	. "github.com/tastapod/advent2022/pair"
-	. "github.com/tastapod/advent2022/segment"
 	"strings"
 	"testing"
 )
