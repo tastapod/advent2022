@@ -3,7 +3,6 @@ package day15_test
 import (
 	"github.com/stretchr/testify/assert"
 	. "github.com/tastapod/advent2022/day15"
-	. "github.com/tastapod/advent2022/segment"
 	"strings"
 	"testing"
 )
@@ -21,30 +20,26 @@ func TestParsesSensorLine(t *testing.T) {
 	assert.NotEqual(nil, err)
 }
 
+func reading(sensorX, sensorY, beaconX, beaconY int) Reading {
+	return Reading{
+		Sensor: Point{X: sensorX, Y: sensorY},
+		Beacon: Point{X: beaconX, Y: beaconY},
+	}
+}
+
 func TestCalculatesManhattanDistance(t *testing.T) {
-	reading := Reading{Sensor: Point{X: 2, Y: 18}, Beacon: Point{X: -2, Y: 15}}
-	assert.Equal(t, 7, reading.Distance())
+	reading := reading(2, 18, -2, 15)
+	assert.Equal(t, 7, reading.Radius())
 }
 
 func TestFindsPointsOnGivenRow(t *testing.T) {
 	assert := assert.New(t)
 
-	reading := Reading{Sensor: Point{X: 8, Y: 7}, Beacon: Point{X: 2, Y: 10}}
-	segment := reading.SegmentOnRow(10)
+	reading := reading(8, 7, 2, 10)
+	span, intersects := reading.SpanOnRow(10)
 
-	assert.Equal(13, len(segment.Points()))
-	assert.True(segment.Contains(Point{X: 2, Y: 10}))
-	assert.False(segment.Contains(Point{X: 1, Y: 10}))
-}
-
-func TestChecksForIntersectingRow(t *testing.T) {
-	assert := assert.New(t)
-
-	reading := Reading{Sensor: Point{X: 8, Y: 7}, Beacon: Point{X: 2, Y: 10}}
-	assert.False(reading.IntersectsRow(-3))
-	assert.True(reading.IntersectsRow(-2))
-	assert.True(reading.IntersectsRow(16))
-	assert.False(reading.IntersectsRow(17))
+	assert.True(intersects)
+	assert.Equal(Span{Start: 2, End: 14}, span)
 }
 
 var sampleReadingLines = strings.Split(strings.TrimSpace(`
@@ -79,7 +74,8 @@ func TestCountsPointsIntersectingRow(t *testing.T) {
 
 func TestFindsPossiblePoints(t *testing.T) {
 	readings := parseReadings(t)
-	assert.Equal(t, Point{X: 14, Y: 11}, *FindVacantPoint(20, readings))
+	point, _ := FindVacantPoint(20, readings)
+	assert.Equal(t, Point{X: 14, Y: 11}, point)
 }
 
 func TestCalculatesTuningFrequency(t *testing.T) {

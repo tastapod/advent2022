@@ -2,7 +2,6 @@ package day15
 
 import (
 	"fmt"
-	. "github.com/tastapod/advent2022/segment"
 	"sort"
 )
 
@@ -10,26 +9,32 @@ type Reading struct {
 	Sensor, Beacon Point
 }
 
-func (r *Reading) Distance() int {
-	return absDiff(r.Sensor.X, r.Beacon.X) + absDiff(r.Sensor.Y, r.Beacon.Y)
+type Point struct {
+	X, Y int
 }
 
-func (r *Reading) SegmentOnRow(row int) Segment {
+type Span struct {
+	Start, End int
+}
+
+func (p *Point) ManhattanDist(other Point) int {
+	return absDiff(p.X, other.X) + absDiff(p.Y, other.Y)
+}
+
+func (r *Reading) Radius() int {
+	return r.Sensor.ManhattanDist(r.Beacon)
+}
+
+// SpanOnRow finds the Span of the X coordinates where a Sensor intersects a row.
+// If the Sensor does not intersect the row, return zero Span and false.
+func (r *Reading) SpanOnRow(row int) (Span, bool) {
 	yDist := absDiff(r.Sensor.Y, row)
 
-	xDist := r.Distance() - yDist
-	if xDist > 0 {
-		segment, _ := NewSegment(
-			Point{X: r.Sensor.X - xDist, Y: row},
-			Point{X: r.Sensor.X + xDist, Y: row})
-		return segment
+	if xDist := r.Radius() - yDist; xDist >= 0 {
+		return Span{r.Sensor.X - xDist, r.Sensor.X + xDist}, true
 	} else {
-		return Segment{}
+		return Span{}, false
 	}
-}
-
-func (r *Reading) IntersectsRow(row int) bool {
-	return r.Sensor.Y-r.Distance() <= row && row <= r.Sensor.Y+r.Distance()
 }
 
 func absDiff(a, b int) int {
@@ -79,53 +84,74 @@ func SumOverlappingSegmentLengths(row int, readings []Reading) int {
 	return calculateOverlappingLength(kleePoints)
 }
 
-func FindVacantPoint(limit int, readings []Reading) *Point {
-	for y := 0; y <= limit; y++ {
-		kleeVector := buildKleeVector(y, readings)
-		if x := findEmptyPoint(kleeVector); x != nil {
-			result := Point{X: *x, Y: y}
-			return &result
+func FindVacantPoint(limit int, readings []Reading) (Point, bool) {
+	beaconsByRow := mapOfBeaconsByRow(readings)
+
+	// for each row
+	for row := 0; row < limit; row++ {
+		spans := make([]Span, 0)
+
+		if beaconSpans, found := beaconsByRow[row]; found {
+			copy(spans, beaconSpans)
+		}
+
+		for _, reading := range readings {
+			if span, intersectsRow := reading.SpanOnRow(row); intersectsRow {
+				spans = append(spans, span)
+			}
+		}
+
+		// sort ranges by start point
+		sort.Slice(spans, func(i, j int) bool { return spans[i].Start < spans[j].Start })
+
+		// for each span 1-(n-1)
+		spanSoFar := spans[0]
+
+		for _, span := range spans[1:] {
+
+			// if span overlaps span so far
+			if span.Start <= spanSoFar.End {
+				if span.End > spanSoFar.End {
+					spanSoFar = Span{spanSoFar.Start, span.End}
+				}
+			} else {
+				// FOUND EMPTY SPOT!
+				return Point{spanSoFar.End + 1, row}, true
+			}
 		}
 	}
-	return nil
+
+	// didn't find the vacant point
+	return Point{}, false
+}
+
+func mapOfBeaconsByRow(readings []Reading) map[int][]Span {
+	result := make(map[int][]Span)
+	for _, reading := range readings {
+		row := reading.Beacon.Y
+		span := Span{reading.Beacon.X, reading.Beacon.X}
+
+		if beacons, found := result[row]; found {
+			result[row] = append(beacons, span)
+		} else {
+			result[row] = []Span{span}
+		}
+	}
+	return result
 }
 
 func TuningFrequency(point Point) int {
 	return 4_000_000*point.X + point.Y
 }
 
-// findEmptyPoint is a riff on Klee's algorithm where we look for any
-// non-zero run where segment depth is 0, i.e. not covered by a segment
-//
-// Return an int pointer so we can use nil for not found
-func findEmptyPoint(kleeVector []KleePoint) *int {
-	segmentDepth := 1 // how many segments deep at this point
-
-	for i := 1; i < len(kleeVector); i++ {
-		prev, this := kleeVector[i-1], kleeVector[i]
-		if diff := this.X - prev.X; segmentDepth == 0 && diff > 0 {
-			// we found one!
-			result := prev.X + 1
-			return &result
-		}
-		if this.IsEnd {
-			segmentDepth -= 1
-		} else {
-			segmentDepth += 1
-		}
-	}
-	return nil
-}
-
 func buildKleeVector(row int, readings []Reading) []KleePoint {
 	result := make([]KleePoint, 0)
 
 	for _, reading := range readings {
-		if reading.IntersectsRow(row) {
-			segment := reading.SegmentOnRow(row)
+		if span, intersects := reading.SpanOnRow(row); intersects {
 			result = append(result,
-				KleePoint{segment.Start.X, false},
-				KleePoint{segment.End.X, true})
+				KleePoint{span.Start, false},
+				KleePoint{span.End, true})
 		}
 	}
 

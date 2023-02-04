@@ -6,6 +6,7 @@ import (
 	"github.com/tastapod/advent2022/day15"
 	"github.com/tastapod/advent2022/input"
 	"strings"
+	"time"
 )
 
 func main() {
@@ -35,6 +36,10 @@ func solveDay15() {
 	part1 := day15.SumOverlappingSegmentLengths(2000000, readings)
 	fmt.Printf("Day 15 part 1: %d\n", part1)
 
-	part2 := day15.TuningFrequency(*day15.FindVacantPoint(4_000_000, readings))
-	fmt.Printf("Day 15 part 2: %d\n", part2)
+	start := time.Now()
+	point, _ := day15.FindVacantPoint(4_000_000, readings)
+	part2 := day15.TuningFrequency(point)
+	elapsed := time.Since(start)
+	fmt.Printf("Day 15 part 2: %v -> %d (took %v)\n", point, part2, elapsed)
+
 }
