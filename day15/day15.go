@@ -94,7 +94,7 @@ func FindVacantPoint(limit int, readings []Reading) (Point, bool) {
 	numWorkers := runtime.NumCPU()
 
 	for startRow := 0; startRow < numWorkers; startRow++ {
-		go checkRow(startRow, numWorkers, limit, readings, beaconsByRow, results, failed)
+		go checkRowsWithStep(startRow, numWorkers, limit, readings, beaconsByRow, results, failed)
 	}
 
 	// succeed on first result, or fail if everything finishes
@@ -109,17 +109,21 @@ func FindVacantPoint(limit int, readings []Reading) (Point, bool) {
 	return Point{}, false
 }
 
-func checkRow(
+func checkRowsWithStep(
 	startRow int,
-	numWorkers int,
+	step int,
 	limit int,
 	readings []Reading,
 	beaconsByRow map[int][]Span,
 	results chan Point,
 	failed chan bool,
 ) {
-	for row := startRow; row < limit; row += numWorkers {
-		spans := make([]Span, 0)
+	// allocate Span array once and clear it for each row
+	spans := make([]Span, 0, len(readings))
+
+	for row := startRow; row < limit; row += step {
+		// reset Span array
+		spans := spans[:0]
 
 		if beaconSpans, found := beaconsByRow[row]; found {
 			copy(spans, beaconSpans)
@@ -142,7 +146,7 @@ func checkRow(
 			// if span overlaps span so far
 			if span.Start <= spanSoFar.End {
 				if span.End > spanSoFar.End {
-					spanSoFar = Span{spanSoFar.Start, span.End}
+					spanSoFar.End = span.End
 				}
 			} else {
 				// FOUND EMPTY SPOT!

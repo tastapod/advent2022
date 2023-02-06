@@ -45,5 +45,4 @@ func solveDay15() {
 		elapsed := time.Since(start)
 		fmt.Printf("Day 15 part 2: no open points found (took %v)\n", elapsed)
 	}
-
 }
