@@ -37,9 +37,13 @@ func solveDay15() {
 	fmt.Printf("Day 15 part 1: %d\n", part1)
 
 	start := time.Now()
-	point, _ := day15.FindVacantPoint(4_000_000, readings)
-	part2 := day15.TuningFrequency(point)
-	elapsed := time.Since(start)
-	fmt.Printf("Day 15 part 2: %v -> %d (took %v)\n", point, part2, elapsed)
+	if point, found := day15.FindVacantPoint(4_000_000, readings); found {
+		part2 := day15.TuningFrequency(point)
+		elapsed := time.Since(start)
+		fmt.Printf("Day 15 part 2: %v -> %d (took %v)\n", point, part2, elapsed)
+	} else {
+		elapsed := time.Since(start)
+		fmt.Printf("Day 15 part 2: no open points found (took %v)\n", elapsed)
+	}
 
 }

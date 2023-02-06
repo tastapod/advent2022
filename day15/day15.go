@@ -86,14 +86,39 @@ func SumOverlappingSegmentLengths(row int, readings []Reading) int {
 }
 
 func FindVacantPoint(limit int, readings []Reading) (Point, bool) {
-	return findVacantPointsWithGoroutines(limit, readings), true
-}
-
-func findVacantPointsSerially(limit int, readings []Reading) (Point, bool) {
 	beaconsByRow := mapOfBeaconsByRow(readings)
 
-	// for each row
-	for row := 0; row < limit; row++ {
+	results := make(chan Point)
+	failed := make(chan bool)
+
+	numWorkers := runtime.NumCPU()
+
+	for startRow := 0; startRow < numWorkers; startRow++ {
+		go checkRow(startRow, numWorkers, limit, readings, beaconsByRow, results, failed)
+	}
+
+	// succeed on first result, or fail if everything finishes
+	for workersLeft := numWorkers; workersLeft > 0; {
+		select {
+		case <-failed:
+			workersLeft--
+		case result := <-results:
+			return result, true
+		}
+	}
+	return Point{}, false
+}
+
+func checkRow(
+	startRow int,
+	numWorkers int,
+	limit int,
+	readings []Reading,
+	beaconsByRow map[int][]Span,
+	results chan Point,
+	failed chan bool,
+) {
+	for row := startRow; row < limit; row += numWorkers {
 		spans := make([]Span, 0)
 
 		if beaconSpans, found := beaconsByRow[row]; found {
@@ -121,61 +146,13 @@ func findVacantPointsSerially(limit int, readings []Reading) (Point, bool) {
 				}
 			} else {
 				// FOUND EMPTY SPOT!
-				return Point{spanSoFar.End + 1, row}, true
+				results <- Point{spanSoFar.End + 1, row}
+				return
 			}
 		}
 	}
-
-	// didn't find the vacant point
-	return Point{}, false
-}
-
-// Will block forever if there is no answer
-func findVacantPointsWithGoroutines(limit int, readings []Reading) Point {
-	beaconsByRow := mapOfBeaconsByRow(readings)
-
-	results := make(chan Point)
-
-	numWorkers := runtime.NumCPU()
-
-	for worker := 0; worker < numWorkers; worker++ {
-		go func(startRow int, results chan<- Point) {
-			for row := startRow; row < limit; row += numWorkers {
-				spans := make([]Span, 0)
-
-				if beaconSpans, found := beaconsByRow[row]; found {
-					copy(spans, beaconSpans)
-				}
-
-				for _, reading := range readings {
-					if span, intersectsRow := reading.SpanOnRow(row); intersectsRow {
-						spans = append(spans, span)
-					}
-				}
-
-				// sort ranges by start point
-				sort.Slice(spans, func(i, j int) bool { return spans[i].Start < spans[j].Start })
-
-				// for each span 1-(n-1)
-				spanSoFar := spans[0]
-
-				for _, span := range spans[1:] {
-
-					// if span overlaps span so far
-					if span.Start <= spanSoFar.End {
-						if span.End > spanSoFar.End {
-							spanSoFar = Span{spanSoFar.Start, span.End}
-						}
-					} else {
-						// FOUND EMPTY SPOT!
-						results <- Point{spanSoFar.End + 1, row}
-					}
-				}
-			}
-		}(worker, results)
-	}
-
-	return <-results
+	// failed, so report that we are done
+	failed <- true
 }
 
 func mapOfBeaconsByRow(readings []Reading) map[int][]Span {
